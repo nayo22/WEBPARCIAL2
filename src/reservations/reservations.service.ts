@@ -1,55 +1,36 @@
-import { Injectable, NotFoundException, NotImplementedException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { RoomEntity } from '../rooms/entities/room.entity';
-import { CreateReservationDto } from './dto/create-reservation.dto';
 import { ReservationEntity } from './entities/reservation.entity';
 import { ReservationRulesService } from './reservation-rules.service';
+import { CreateReservationDto } from './dto/create-reservation.dto';
 
 @Injectable()
 export class ReservationsService {
   constructor(
     @InjectRepository(ReservationEntity)
-    private readonly reservationsRepository: Repository<ReservationEntity>,
-    @InjectRepository(RoomEntity)
-    private readonly roomsRepository: Repository<RoomEntity>,
-    // TODO 2: Inject ReservationRulesService through this constructor.
+    private readonly reservationRepository: Repository<ReservationEntity>,
+    private readonly reservationRulesService: ReservationRulesService,
   ) {}
 
-  async cancel(id: number): Promise<ReservationEntity> {
-    // TODO 2: Coordinate the operation according to the examination.
-    throw new NotImplementedException('TODO 2: implement cancellation');
-  }
-
-  // The methods below are completed. Do not change them.
-  async create(dto: CreateReservationDto): Promise<ReservationEntity> {
-    const room = await this.roomsRepository.findOneBy({ id: dto.roomId });
-    if (!room) throw new NotFoundException('Room was not found');
-
-    const reservation = this.reservationsRepository.create({
-      purpose: dto.purpose,
-      participants: dto.participants,
-      status: 'active',
-      room,
-    });
-    return this.reservationsRepository.save(reservation);
-  }
-
-  findAll(): Promise<ReservationEntity[]> {
-    return this.reservationsRepository.find({
-      relations: { room: true },
-      order: { id: 'ASC' },
-    });
+  async create(createReservationDto: CreateReservationDto) {
   }
 
   async findOne(id: number): Promise<ReservationEntity> {
-    const reservation = await this.reservationsRepository.findOne({
+    const reservation = await this.reservationRepository.findOne({
       where: { id },
-      relations: { room: true },
+      relations: ['room'],
     });
     if (!reservation) {
-      throw new NotFoundException(`Reservation with id ${id} was not found`);
+      throw new NotFoundException(`Reservation with ID ${id} not found`);
     }
     return reservation;
+  }
+
+  async cancel(id: number): Promise<ReservationEntity> {
+    const reservation = await this.findOne(id);
+    this.reservationRulesService.ensureCanCancel(reservation);
+    reservation.status = 'cancelled';
+    return this.reservationRepository.save(reservation);
   }
 }

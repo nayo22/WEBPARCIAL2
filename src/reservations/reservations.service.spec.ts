@@ -1,68 +1,63 @@
-import { ConflictException } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
+import { ReservationsService } from './reservations.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { RoomEntity } from '../rooms/entities/room.entity';
 import { ReservationEntity } from './entities/reservation.entity';
 import { ReservationRulesService } from './reservation-rules.service';
-import { ReservationsService } from './reservations.service';
+import { Repository } from 'typeorm';
+import { ConflictException } from '@nestjs/common';
 
 describe('ReservationsService', () => {
   let service: ReservationsService;
-  let reservationsRepositoryMock: {
-    findOne: jest.Mock;
-    find: jest.Mock;
-    create: jest.Mock;
-    save: jest.Mock;
-  };
-  let roomsRepositoryMock: { findOneBy: jest.Mock };
-  let reservationRulesServiceMock: { ensureCanCancel: jest.Mock };
+  let repository: Repository<ReservationEntity>;
+  let rulesService: ReservationRulesService;
 
   beforeEach(async () => {
-    reservationsRepositoryMock = {
-      findOne: jest.fn(),
-      find: jest.fn(),
-      create: jest.fn(),
-      save: jest.fn(),
-    };
-    roomsRepositoryMock = { findOneBy: jest.fn() };
-    reservationRulesServiceMock = { ensureCanCancel: jest.fn() };
-
-    const moduleRef = await Test.createTestingModule({
+    const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReservationsService,
-        { provide: getRepositoryToken(ReservationEntity), useValue: reservationsRepositoryMock },
-        { provide: getRepositoryToken(RoomEntity), useValue: roomsRepositoryMock },
-        { provide: ReservationRulesService, useValue: reservationRulesServiceMock },
+        {
+          provide: getRepositoryToken(ReservationEntity),
+          useClass: Repository,
+        },
+        {
+          provide: ReservationRulesService,
+          useValue: {
+            ensureCanCancel: jest.fn(),
+          },
+        },
       ],
     }).compile();
-    service = moduleRef.get(ReservationsService);
+
+    service = module.get<ReservationsService>(ReservationsService);
+    repository = module.get<Repository<ReservationEntity>>(
+      getRepositoryToken(ReservationEntity),
+    );
+    rulesService = module.get<ReservationRulesService>(ReservationRulesService);
   });
 
-  it('cancels an active reservation and returns the saved result', async () => {
-    const reservation = {
-      id: 7,
-      purpose: 'Project planning',
-      participants: 6,
-      status: 'active',
-      room: { id: 1, name: 'Room A' },
-    } as ReservationEntity;
-    const savedReservation = { ...reservation, status: 'cancelled' } as ReservationEntity;
+  it('should cancel and save reservation when rules pass', async () => {
+    const reservation = { id: 1, status: 'active' } as any;
+    jest.spyOn(service, 'findOne').mockResolvedValue(reservation);
+    jest.spyOn(rulesService, 'ensureCanCancel').mockReturnValue(undefined);
+    jest.spyOn(repository, 'save').mockResolvedValue({ ...reservation, status: 'cancelled' });
 
-    // TODO TEST 2: Arrange dependencies, call cancel(7), and check the required behavior.
-    throw new Error('TODO TEST 2: complete the successful cancellation test');
+    const result = await service.cancel(1);
+    expect(rulesService.ensureCanCancel).toHaveBeenCalledWith(reservation);
+    expect(reservation.status).toBe('cancelled');
+    expect(repository.save).toHaveBeenCalledWith(reservation);
+    expect(result.status).toBe('cancelled');
   });
 
-  it('does not change or save a reservation when the rule rejects cancellation', async () => {
-    const reservation = {
-      id: 9,
-      purpose: 'Team review',
-      participants: 4,
-      status: 'active',
-      room: { id: 2, name: 'Room B' },
-    } as ReservationEntity;
+  it('should not modify or save if rules service throws exception', async () => {
+    const reservation = { id: 1, status: 'active' } as any;
+    jest.spyOn(service, 'findOne').mockResolvedValue(reservation);
+    jest.spyOn(rulesService, 'ensureCanCancel').mockImplementation(() => {
+      throw new ConflictException();
+    });
+    const saveSpy = jest.spyOn(repository, 'save');
 
-    // TODO TEST 3: Make the mock rule reject this ACTIVE reservation, as requested.
-    // Check the exception, the unchanged state, and the absence of a save() call.
-    throw new Error('TODO TEST 3: complete the rejected cancellation test');
+    await expect(service.cancel(1)).rejects.toThrow(ConflictException);
+    expect(reservation.status).toBe('active');
+    expect(saveSpy).not.toHaveBeenCalled();
   });
 });
