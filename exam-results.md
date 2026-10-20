@@ -4,14 +4,14 @@ Registrar resultados reales después de implementar y probar los endpoints. Sust
 
 | Petición y datos utilizados | Código esperado | Código obtenido | Observación |
 | --- | --- | --- | --- |
-| Crear una reserva con datos válidos y sala existente. | 201 | Pendiente | |
-| Crear con participants como texto. | 400 | Pendiente | |
-| Crear con una propiedad adicional, como status. | 400 | Pendiente | |
-| Crear con una sala inexistente. | 404 | Pendiente | |
-| Cancelar una reserva activa y consultar el cambio guardado. | 200 | Pendiente | |
-| Cancelar de nuevo la misma reserva. | 409 | Pendiente | |
-| Intentar cancelar con ID abc. | 400 | Pendiente | |
-| Intentar cancelar con un ID entero inexistente. | 404 | Pendiente | |
+| Crear una reserva con datos válidos y sala existente. | 201 | Created | |
+| Crear con participants como texto. | 400 | Bad Request | |
+| Crear con una propiedad adicional, como status. | 400 | Bad Request | |
+| Crear con una sala inexistente. | 404 | Not Found | |
+| Cancelar una reserva activa y consultar el cambio guardado. | 200 | OK | |
+| Cancelar de nuevo la misma reserva. | 409 | Conflict | |
+| Intentar cancelar con ID abc. | 400 | Bad Request | |
+| Intentar cancelar con un ID entero inexistente. | 404 | NotFound | |
 
 ## Pruebas unitarias
 
@@ -23,4 +23,9 @@ Registrar el resultado de `npm test`.
 | 2. El servicio cancela y guarda una reserva activa. | Pendiente |
 | 3. Si la regla simulada rechaza, conserva active y no guarda. | Pendiente |
 
-Resumen de ejecución: pendiente.
+Resumen de ejecución: 
+Test Suites: 2 passed, 2 total
+Tests:       3 passed, 3 total
+Snapshots:   0 total
+Time:        1.402 s, estimated 2 s
+Ran all test suites.
